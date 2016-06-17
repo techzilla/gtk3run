@@ -10,7 +10,7 @@
 struct widgets {
 	GtkWidget *window;
 	GtkWidget *entry;
-    GtkWidget *label;
+  GtkWidget *label;
 };
 
 

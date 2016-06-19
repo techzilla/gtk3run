@@ -22,7 +22,7 @@ command -v readlink > /dev/null && {
 }
 
 ## Prepare Build Directory
-mkdir build
+[ -d 'build' ] || mkdir build
 cd build
 cmake ..
 
@@ -32,6 +32,7 @@ make
 
 cd "$OWD"
 
+./build/src/gtk3run
 
 ## Exit Jump
 die 0

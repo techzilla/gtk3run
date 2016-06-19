@@ -1,14 +1,5 @@
 build/
-
-### CMake ###
-
-CMakeCache.txt
-CMakeFiles
-CMakeScripts
-Makefile
-cmake_install.cmake
-install_manifest.txt
-CTestTestfile.cmake
+\#*\#
 
 
 ### C ###
@@ -39,6 +30,47 @@ CTestTestfile.cmake
 
 *.dSYM/
 *.su
+
+
+### CMake ###
+
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Makefile
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+
+
+### Eclipse ###
+
+.metadata
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+
+.project
+.externalToolBuilders/
+
+*.launch
+*.pydevproject
+.cproject
+.classpath
+.factorypath
+.buildpath
+.target
+.tern-project
+.texlipse
+.springBeans
+.recommenders/
 
 
 ### JetBrains ###

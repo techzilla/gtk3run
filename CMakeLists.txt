@@ -18,12 +18,6 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" "${CMAKE_MODULE_PATH}"
 include(MacroOutOfSourceBuild)
 macro_ensure_out_of_source_build("${PROJECT_NAME} requires an out tree build.")
 
-## Output Directories
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
-
 ##
 find_package(GTK3 REQUIRED)
 
@@ -31,15 +25,13 @@ find_package(GTK3 REQUIRED)
 add_subdirectory("${PROJECT_SOURCE_DIR}/src")
 
 
-
-
 ## Documentation
 find_package(Doxygen)
 option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" ${DOXYGEN_FOUND})
 
-if(BUILD_DOCUMENTATION)
-    if(NOT DOXYGEN_FOUND)
+if (BUILD_DOCUMENTATION)
+    if (NOT DOXYGEN_FOUND)
         message(FATAL_ERROR "Doxygen is needed to build the documentation.")
-    endif()
-add_subdirectory(doc)
-endif()
+    endif ()
+    add_subdirectory(doc)
+endif ()

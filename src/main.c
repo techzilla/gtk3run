@@ -8,8 +8,10 @@
  */
 
 #include <stdlib.h>
+
 #include <glib.h>
 #include <glib/gstdio.h>
+#include <gdk/gdkkeysyms.h>
 #include <gtk/gtk.h>
 
 #include "main.h"
@@ -34,7 +36,8 @@ struct lists {
  * @brief Enum for liststore columns
  */
 enum {
-    COL_CMD = 0
+    COL_NAME,
+    COL_PATH
 };
 
 /**
@@ -91,7 +94,7 @@ static gboolean init_history(GtkListStore *liststore) {
     for (; read != -1; read = getline(&line, &length, history_file))
     {
         gtk_list_store_append(liststore, &iter);
-        gtk_list_store_set(liststore, &iter, COL_CMD, g_strchomp(line), -1);
+        gtk_list_store_set(liststore, &iter, COL_NAME, g_strchomp(line), -1);
         g_free(line);
         line = NULL;
     };
@@ -102,21 +105,27 @@ static gboolean init_history(GtkListStore *liststore) {
 }
 
 /**
- * @brief Function for entry activation signal callback
- * @return gboolean
+ * @brief Function for entry match-selected signal callback
+ * @return void
  */
-G_MODULE_EXPORT gboolean cb_pushed(GtkStatusbar *statusbar, guint context_id, gchar *text, gpointer data) {
+G_MODULE_EXPORT void cb_matchselected(GtkWidget *entry) {
 
-    gtk_statusbar_pop(GTK_STATUSBAR(statusbar), context_id);
-
-    return TRUE;
 }
+
+/**
+ * @brief Function for entry destroy signal callback
+ * @return void
+ */
+G_MODULE_EXPORT void cb_destroy(GtkWidget *window) {
+    gtk_main_quit();
+}
+
 
 /**
  * @brief Function for entry activation signal callback
  * @return gboolean
  */
-G_MODULE_EXPORT gboolean cb_activated(GtkWidget *entry, GtkStatusbar *statusbar) {
+G_MODULE_EXPORT gboolean cb_activate(GtkWidget *entry, GtkStatusbar *statusbar) {
     GError *err = NULL;
     guint context_id;
 
@@ -136,6 +145,46 @@ G_MODULE_EXPORT gboolean cb_activated(GtkWidget *entry, GtkStatusbar *statusbar)
     }
     return TRUE;
 }
+
+
+/**
+ * @brief Function for entry changed signal callback
+ * @return void
+ */
+G_MODULE_EXPORT void cb_changed(GtkWidget *entry) {
+
+}
+
+
+/**
+ * @brief Function for entry key-press-event signal callback
+ * @return void
+ */
+G_MODULE_EXPORT gboolean cb_keypress(GtkWidget *entry, GdkEventKey *event) {
+
+    switch (event->keyval) {
+        case GDK_KEY_uparrow:
+            break;
+        case GDK_KEY_downarrow:
+            break;
+        case GDK_KEY_Tab:
+            break;
+            }
+    return GDK_EVENT_PROPAGATE;
+
+}
+
+/**
+ * @brief Function for entry activation signal callback
+ * @return gboolean
+ */
+G_MODULE_EXPORT gboolean cb_pushed(GtkStatusbar *statusbar, guint context_id, gchar *text, gpointer data) {
+
+    gtk_statusbar_pop(GTK_STATUSBAR(statusbar), context_id);
+
+    return TRUE;
+}
+
 
 /**
  * @brief Function for main

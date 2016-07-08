@@ -21,17 +21,9 @@ macro_ensure_out_of_source_build("${PROJECT_NAME} requires an out tree build.")
 ##
 find_package(GTK3 REQUIRED)
 
-##
+## Source
 add_subdirectory("${PROJECT_SOURCE_DIR}/src")
 
 
 ## Documentation
-find_package(Doxygen)
-option(BUILD_DOCUMENTATION "Create and install the HTML based API documentation (requires Doxygen)" ${DOXYGEN_FOUND})
-
-if (BUILD_DOCUMENTATION)
-    if (NOT DOXYGEN_FOUND)
-        message(FATAL_ERROR "Doxygen is needed to build the documentation.")
-    endif ()
-    add_subdirectory(doc)
-endif ()
+add_subdirectory("${PROJECT_SOURCE_DIR}/doc")

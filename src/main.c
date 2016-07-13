@@ -34,71 +34,92 @@ struct lists {
 };
 
 /**
- * @brief Enum for liststore columns
+ * @brief Structure for globally scoped completions
  */
-enum {
-	COL_NAME,
+struct completions {
+	GtkEntryCompletion *entrycompletion1;
 };
 
 /**
- * @brief Function to acquire widgets from builder
- * @return gboolean
+ * @brief Enum for liststore columns
  */
-static gboolean get_widgets(struct widgets *widgets, GtkBuilder *builder) {
-	widgets->window1 = GTK_WIDGET(gtk_builder_get_object(builder, "window1"));
-	widgets->entry1 = GTK_WIDGET(gtk_builder_get_object(builder, "entry1"));
-	widgets->statusbar1 = GTK_WIDGET(gtk_builder_get_object(builder, "statusbar1"));
-
-	return TRUE;
-}
+enum {
+	COL_NAME, COL_FLAG,
+};
 
 /**
- * @brief Function to acquire lists from builder
- * @return gboolean
+ * @brief Enum for COL_FLAG
  */
-static gboolean get_lists(struct lists *lists, GtkBuilder *builder) {
-	lists->liststore1 = gtk_list_store_new(1, G_TYPE_STRING);
-	lists->liststore2 = gtk_list_store_new(1, G_TYPE_STRING);
+enum {
+	T_CMD, T_DIR,
+};
 
-	return TRUE;
-}
+
 
 /**
- * @brief Function to initialize shell history
- * @return gboolean
+ * @brief Function to search directory for commands
+ * @return void
  */
-static gboolean init_history(GtkListStore *liststore) {
+void create_command_list(gchar *i, GtkListStore *liststore) {
+	GDir *path_dir;
+	GError *err = NULL;
+
+	const gchar *command_name;
+	gchar *command_path;
 
 	GtkTreeIter iter;
 
-	gchar *history_filename;
-	FILE *history_file;
+	path_dir = g_dir_open(i, 0, &err);
 
-	char *line;
-	size_t length;
-	ssize_t read;
+	if (!path_dir) {
+		g_warning("%s", err->message);
+		g_error_free(err);
+		return;
+	}
 
-	history_filename = g_build_filename(g_get_home_dir(), ".bash_history",
-	NULL);
-	if (!g_file_test(history_filename, G_FILE_TEST_EXISTS)) {
-		g_free(history_filename);
-		return FALSE;
-	};
+	while ((command_name = g_dir_read_name(path_dir)) != NULL) {
 
-	history_file = g_fopen(history_filename, "r");
+		command_path = g_build_filename(i, command_name, NULL);
 
-	line = NULL;
-	read = getline(&line, &length, history_file);
-	for (; read != -1; read = getline(&line, &length, history_file)) {
-		gtk_list_store_append(liststore, &iter);
-		gtk_list_store_set(liststore, &iter, COL_NAME, g_strchomp(line), -1);
-		g_free(line);
-		line = NULL;
-	};
-	fclose(history_file);
-	g_free(history_filename);
+		if (g_file_test(command_path, G_FILE_TEST_IS_EXECUTABLE)) {
+			gtk_list_store_append(liststore, &iter);
+			gtk_list_store_set(liststore, &iter, COL_NAME, (gchar *) command_name, -1);
+
+		}
+		g_free(command_path);
+	}
+
+	g_dir_close(path_dir);
+	return;
+}
+
+/**
+ * @brief Function to initialize PATH command completion
+ * @return gboolean
+ */
+static gboolean init_path(GtkListStore *liststore) {
+
+	gint i;
+	gchar **path_string;
+	gchar **env;
+	GSList *path_dirs = NULL;
+
+	env = g_get_environ();
+
+	path_string = g_strsplit((g_environ_getenv(env, "PATH")), G_SEARCHPATH_SEPARATOR_S, -1);
+
+	for (i = 0; path_string[i]; i++) {
+		path_dirs = g_slist_prepend(path_dirs, path_string[i]);
+	}
+
+	g_slist_foreach(path_dirs, (GFunc) create_command_list, liststore);
+
+	g_slist_free(path_dirs);
+	g_strfreev(path_string);
+	g_strfreev(env);
 
 	return TRUE;
+
 }
 
 /**
@@ -185,6 +206,7 @@ int main(int argc, char **argv) {
 	GError *err = NULL;
 	struct widgets *widgets;
 	struct lists *lists;
+	struct completions *completions;
 
 	gtk_init(&argc, &argv);
 
@@ -196,18 +218,25 @@ int main(int argc, char **argv) {
 
 	widgets = g_slice_new(struct widgets);
 	lists = g_slice_new(struct lists);
+	completions = g_slice_new(struct completions);
 
-	get_lists(lists, builder);
-	get_widgets(widgets, builder);
 
-	gtk_builder_connect_signals(builder, widgets);
+	widgets->window1 = GTK_WIDGET(gtk_builder_get_object(builder, "window1"));
+	lists->liststore1 = GTK_LIST_STORE(gtk_builder_get_object(builder, "liststore1"));
+	completions->entrycompletion1 = GTK_ENTRY_COMPLETION(gtk_builder_get_object(builder, "entrycompletion1"));
+
+
+	gtk_builder_connect_signals(builder, NULL);
 	g_object_unref(G_OBJECT(builder));
 
-	init_history(lists->liststore1);
-
+	init_path(lists->liststore1);
 	gtk_widget_show(widgets->window1);
+
+
 	gtk_main();
 
+
+	g_slice_free(struct completions, completions);
 	g_slice_free(struct widgets, widgets);
 	g_slice_free(struct lists, lists);
 

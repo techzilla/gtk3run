@@ -4,12 +4,14 @@ project(gtk3run
         VERSION 0.5.0
         LANGUAGES C)
 
+
 ## Compiler Flags
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wpedantic -rdynamic")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -g")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -O0 -g -DDEBUG")
 set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS} -O2")
-
 
 ## Module Include
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" "${CMAKE_MODULE_PATH}")

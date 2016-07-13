@@ -8,6 +8,6 @@ set(HEADER
 )
 
 include_directories(${GTK3_INCLUDE_DIRS})
-add_executable(gtk3run ${SOURCE} ${HEADER})
+add_executable(gtk3run ${SOURCE})
 target_link_libraries(gtk3run ${GTK3_LIBRARIES})
 

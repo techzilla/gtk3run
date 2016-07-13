@@ -24,7 +24,7 @@ command -v readlink > /dev/null && {
 ## Prepare Build Directory
 [ -d 'build' ] || mkdir build
 cd build
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Debug ..
 
 ## Begin Build
 make

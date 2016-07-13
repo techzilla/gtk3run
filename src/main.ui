@@ -6,7 +6,16 @@
   <!-- interface-name Gtk3Run -->
   <!-- interface-description Gtk3 Run Command -->
   <!-- interface-authors J. M. Becker <cyberpunkspike@gmail.com> -->
+  <object class="GtkListStore" id="liststore1">
+    <columns>
+      <!-- column-name COL_NAME -->
+      <column type="gchararray"/>
+      <!-- column-name gint1 -->
+      <column type="gint"/>
+    </columns>
+  </object>
   <object class="GtkEntryCompletion" id="entrycompletion1">
+    <property name="model">liststore1</property>
     <property name="text_column">0</property>
     <signal name="match-selected" handler="cb_matchselected" swapped="no"/>
     <child>

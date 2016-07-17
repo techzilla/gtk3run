@@ -54,77 +54,124 @@ enum {
 	T_CMD, T_DIR,
 };
 
-
-
 /**
- * @brief Function to search directory for commands
- * @return void
+ * @brief Function to search directory for commands and update list
+ * @param dirname
+ * @param liststore
+
  */
-void create_command_list(gchar *i, GtkListStore *liststore) {
-	GDir *path_dir;
+static void update_cmd_list(gchar *dirname, GtkListStore *liststore) {
+	GDir *dir;
 	GError *err = NULL;
 
-	const gchar *command_name;
-	gchar *command_path;
+	const gchar *basename;
+	gchar *fullname;
 
 	GtkTreeIter iter;
 
-	path_dir = g_dir_open(i, 0, &err);
+	dir = g_dir_open(dirname, 0, &err);
 
-	if (!path_dir) {
+	if (!dir) {
 		g_warning("%s", err->message);
 		g_error_free(err);
 		return;
 	}
 
-	while ((command_name = g_dir_read_name(path_dir)) != NULL) {
+	while ((basename = g_dir_read_name(dir)) != NULL) {
 
-		command_path = g_build_filename(i, command_name, NULL);
+		fullname = g_build_filename(dirname, basename, NULL);
 
-		if (g_file_test(command_path, G_FILE_TEST_IS_EXECUTABLE)) {
+		if (g_file_test(fullname, G_FILE_TEST_IS_EXECUTABLE)) {
 			gtk_list_store_append(liststore, &iter);
-			gtk_list_store_set(liststore, &iter, COL_NAME, (gchar *) command_name, -1);
+			gtk_list_store_set(liststore, &iter, COL_NAME, (gchar *) basename, COL_FLAG, T_CMD, -1);
 
 		}
-		g_free(command_path);
+		g_free(fullname);
 	}
 
-	g_dir_close(path_dir);
+	g_dir_close(dir);
 	return;
 }
 
 /**
- * @brief Function to initialize PATH command completion
- * @return gboolean
+ * @brief Function to initialize command completion
+ * @param liststore
  */
-static gboolean init_path(GtkListStore *liststore) {
+static void init_cmd(GtkListStore *liststore) {
 
 	gint i;
-	gchar **path_string;
+	gchar **searchpath;
 	gchar **env;
-	GSList *path_dirs = NULL;
+	GSList *dirs = NULL;
 
 	env = g_get_environ();
 
-	path_string = g_strsplit((g_environ_getenv(env, "PATH")), G_SEARCHPATH_SEPARATOR_S, -1);
+	searchpath = g_strsplit((g_environ_getenv(env, "PATH")), G_SEARCHPATH_SEPARATOR_S, -1);
 
-	for (i = 0; path_string[i]; i++) {
-		path_dirs = g_slist_prepend(path_dirs, path_string[i]);
+	for (i = 0; searchpath[i]; i++) {
+		dirs = g_slist_prepend(dirs, searchpath[i]);
 	}
 
-	g_slist_foreach(path_dirs, (GFunc) create_command_list, liststore);
+	g_slist_foreach(dirs, (GFunc) update_cmd_list, liststore);
 
-	g_slist_free(path_dirs);
-	g_strfreev(path_string);
+	g_slist_free(dirs);
+	g_strfreev(searchpath);
 	g_strfreev(env);
 
-	return TRUE;
+	return;
 
 }
 
 /**
+ * @brief Function to search directory for contents and update list
+ * @param dirname
+ * @param liststore
+ */
+static void update_dir_list(gchar *dirname, GtkListStore *liststore) {
+	GDir *dir;
+	GError *err = NULL;
+	const gchar *basename;
+
+	GtkTreeIter iter;
+
+	dir = g_dir_open(dirname, 0, &err);
+
+	if (!dir) {
+		g_warning("%s", err->message);
+		g_error_free(err);
+		return;
+	}
+
+	while ((basename = g_dir_read_name(dir)) != NULL) {
+
+		gtk_list_store_append(liststore, &iter);
+		gtk_list_store_set(liststore, &iter, COL_NAME, (gchar *) basename, COL_FLAG, T_DIR, -1);
+
+	}
+
+	g_dir_close(dir);
+
+	return;
+}
+
+/**
+ * @brief Functions to initialize directory completion
+ * @param liststore
+ */
+static void init_dir(GtkListStore *liststore) {
+	gchar *dirname;
+
+	dirname = g_build_filename("./", NULL);
+	update_dir_list(dirname, liststore);
+
+	g_free(dirname);
+
+	return;
+}
+
+/**
  * @brief Function for entry match-selected signal callback
- * @return void
+ * @param entry
  */
 G_MODULE_EXPORT void cb_matchselected(GtkWidget *entry) {
 
@@ -132,7 +179,7 @@ G_MODULE_EXPORT void cb_matchselected(GtkWidget *entry) {
 
 /**
  * @brief Function for entry destroy signal callback
- * @return void
+ * @param window
  */
 G_MODULE_EXPORT void cb_destroy(GtkWidget *window) {
 	gtk_main_quit();
@@ -140,7 +187,9 @@ G_MODULE_EXPORT void cb_destroy(GtkWidget *window) {
 
 /**
  * @brief Function for entry activation signal callback
- * @return gboolean
+ * @param entry
+ * @param statusbar
+ * @return
  */
 G_MODULE_EXPORT gboolean cb_activate(GtkWidget *entry, GtkStatusbar *statusbar) {
 	GError *err = NULL;
@@ -162,7 +211,7 @@ G_MODULE_EXPORT gboolean cb_activate(GtkWidget *entry, GtkStatusbar *statusbar) 
 
 /**
  * @brief Function for entry changed signal callback
- * @return void
+ * @param entry
  */
 G_MODULE_EXPORT void cb_changed(GtkWidget *entry) {
 
@@ -170,7 +219,9 @@ G_MODULE_EXPORT void cb_changed(GtkWidget *entry) {
 
 /**
  * @brief Function for entry key-press-event signal callback
- * @return void
+ * @param entry
+ * @param event
+ * @return
  */
 G_MODULE_EXPORT gboolean cb_keypress(GtkWidget *entry, GdkEventKey *event) {
 
@@ -188,7 +239,11 @@ G_MODULE_EXPORT gboolean cb_keypress(GtkWidget *entry, GdkEventKey *event) {
 
 /**
  * @brief Function for entry activation signal callback
- * @return gboolean
+ * @param statusbar
+ * @param context_id
+ * @param text
+ * @param data
+ * @return
  */
 G_MODULE_EXPORT gboolean cb_pushed(GtkStatusbar *statusbar, guint context_id, gchar *text, gpointer data) {
 
@@ -199,6 +254,9 @@ G_MODULE_EXPORT gboolean cb_pushed(GtkStatusbar *statusbar, guint context_id, gc
 
 /**
  * @brief Function for main
+ * @param argc
+ * @param argv
+ * @return
  */
 int main(int argc, char **argv) {
 	GtkBuilder *builder;
@@ -220,21 +278,18 @@ int main(int argc, char **argv) {
 	lists = g_slice_new(struct lists);
 	completions = g_slice_new(struct completions);
 
-
 	widgets->window1 = GTK_WIDGET(gtk_builder_get_object(builder, "window1"));
 	lists->liststore1 = GTK_LIST_STORE(gtk_builder_get_object(builder, "liststore1"));
 	completions->entrycompletion1 = GTK_ENTRY_COMPLETION(gtk_builder_get_object(builder, "entrycompletion1"));
 
-
 	gtk_builder_connect_signals(builder, NULL);
 	g_object_unref(G_OBJECT(builder));
 
-	init_path(lists->liststore1);
+	init_cmd(lists->liststore1);
+	init_dir(lists->liststore1);
 	gtk_widget_show(widgets->window1);
 
-
 	gtk_main();
-
 
 	g_slice_free(struct completions, completions);
 	g_slice_free(struct widgets, widgets);

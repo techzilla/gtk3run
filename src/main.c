@@ -8,6 +8,8 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
+
 
 #include <glib.h>
 #include <glib/gstdio.h>
@@ -131,6 +133,7 @@ static void update_dir_list(gchar *dirname, GtkListStore *liststore) {
 	GDir *dir;
 	GError *err = NULL;
 	const gchar *basename;
+	gchar *fullname;
 
 	GtkTreeIter iter;
 
@@ -144,9 +147,12 @@ static void update_dir_list(gchar *dirname, GtkListStore *liststore) {
 
 	while ((basename = g_dir_read_name(dir)) != NULL) {
 
-		gtk_list_store_append(liststore, &iter);
-		gtk_list_store_set(liststore, &iter, COL_NAME, (gchar *) basename, COL_FLAG, T_DIR, -1);
+		fullname = g_build_filename(dirname, basename, NULL);
 
+		gtk_list_store_append(liststore, &iter);
+		gtk_list_store_set(liststore, &iter, COL_NAME, (gchar *) fullname, COL_FLAG, T_DIR, -1);
+
+		g_free(fullname);
 	}
 
 	g_dir_close(dir);
@@ -161,21 +167,97 @@ static void update_dir_list(gchar *dirname, GtkListStore *liststore) {
 static void init_dir(GtkListStore *liststore) {
 	gchar *dirname;
 
-	dirname = g_build_filename("./", NULL);
+	dirname = "./";
 	update_dir_list(dirname, liststore);
-
-	g_free(dirname);
 
 	return;
 }
 
+static gboolean str_contains_space(gchar *str) {
+	gchar *token;
+
+	token = strchr(str, ' ');
+	if (token) {
+		return TRUE;
+	}
+	return FALSE;
+}
+
+static gboolean str_contains_alnum(const gchar *str) {
+	gchar *token;
+
+	token = strpbrk(str, "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789");
+	if (token) {
+		return TRUE;
+	}
+	return FALSE;
+}
+static gboolean match_func(GtkEntryCompletion *completion, const gchar *key, GtkTreeIter *iter, gpointer user_data) {
+
+	GtkTreeModel *model;
+	gchar *fullname = NULL;
+	gint flag;
+
+	gchar **keytext;
+	gchar *keybuffer;
+	guint len;
+
+	if (!str_contains_alnum(key)) {
+		return FALSE;
+	}
+
+	model = gtk_entry_completion_get_model(completion);
+	gtk_tree_model_get(model, iter, COL_NAME, &fullname, COL_FLAG, &flag, -1);
+
+	keybuffer = g_strstrip(g_strdup_printf(key, "%s"));
+
+	if (!str_contains_space(keybuffer)) {
+		if (flag == T_CMD) {
+			if (g_str_has_prefix(fullname, keybuffer)) {
+				g_free(keybuffer);
+				return TRUE;
+			}
+		}
+		g_free(keybuffer);
+		return FALSE;
+	}
+
+	keytext = g_strsplit(keybuffer, " ", -1);
+	len = g_strv_length(keytext);
+
+	if (flag == T_DIR) {
+		if (g_str_has_prefix(fullname, keytext[len - 1])) {
+			g_strfreev(keytext);
+			g_free(keybuffer);
+			return TRUE;
+		}
+	}
+
+	g_strfreev(keytext);
+	g_free(keybuffer);
+
+	return FALSE;
+}
+
 /**
  * @brief Function for entry match-selected signal callback
- * @param entry
+ * @param completion
  */
-G_MODULE_EXPORT void cb_matchselected(GtkWidget *entry) {
+/*
+G_MODULE_EXPORT void cb_matchselected(GtkEntryCompletion *completion) {
 
 }
+ */
+
+/**
+ * @brief Function for entry insert-prefix signal callback
+ * @param completion
+ */
+G_MODULE_EXPORT gboolean cb_insertprefix(GtkEntryCompletion *completion) {
+
+	return TRUE;
+}
+
 
 /**
  * @brief Function for entry destroy signal callback
@@ -213,9 +295,11 @@ G_MODULE_EXPORT gboolean cb_activate(GtkWidget *entry, GtkStatusbar *statusbar) 
  * @brief Function for entry changed signal callback
  * @param entry
  */
+/*
 G_MODULE_EXPORT void cb_changed(GtkWidget *entry) {
 
 }
+ */
 
 /**
  * @brief Function for entry key-press-event signal callback
@@ -223,7 +307,7 @@ G_MODULE_EXPORT void cb_changed(GtkWidget *entry) {
  * @param event
  * @return
  */
-G_MODULE_EXPORT gboolean cb_keypress(GtkWidget *entry, GdkEventKey *event) {
+/*G_MODULE_EXPORT gboolean cb_keypress(GtkWidget *entry, GdkEventKey *event, GtkEntryCompletion *entrycompletion) {
 
 	switch (event->keyval) {
 	case GDK_KEY_uparrow:
@@ -233,9 +317,10 @@ G_MODULE_EXPORT gboolean cb_keypress(GtkWidget *entry, GdkEventKey *event) {
 	case GDK_KEY_Tab:
 		break;
 	}
+
 	return GDK_EVENT_PROPAGATE;
 
-}
+ }*/
 
 /**
  * @brief Function for entry activation signal callback
@@ -245,7 +330,7 @@ G_MODULE_EXPORT gboolean cb_keypress(GtkWidget *entry, GdkEventKey *event) {
  * @param data
  * @return
  */
-G_MODULE_EXPORT gboolean cb_pushed(GtkStatusbar *statusbar, guint context_id, gchar *text, gpointer data) {
+G_MODULE_EXPORT gboolean cb_textpushed(GtkStatusbar *statusbar, guint context_id, gchar *text, gpointer data) {
 
 	gtk_statusbar_pop(GTK_STATUSBAR(statusbar), context_id);
 
@@ -281,6 +366,8 @@ int main(int argc, char **argv) {
 	widgets->window1 = GTK_WIDGET(gtk_builder_get_object(builder, "window1"));
 	lists->liststore1 = GTK_LIST_STORE(gtk_builder_get_object(builder, "liststore1"));
 	completions->entrycompletion1 = GTK_ENTRY_COMPLETION(gtk_builder_get_object(builder, "entrycompletion1"));
+
+	gtk_entry_completion_set_match_func(completions->entrycompletion1, match_func, NULL, NULL);
 
 	gtk_builder_connect_signals(builder, NULL);
 	g_object_unref(G_OBJECT(builder));

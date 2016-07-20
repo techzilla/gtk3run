@@ -10,14 +10,18 @@
     <columns>
       <!-- column-name COL_NAME -->
       <column type="gchararray"/>
-      <!-- column-name gint1 -->
+      <!-- column-name COL_FLAG -->
       <column type="gint"/>
     </columns>
   </object>
   <object class="GtkEntryCompletion" id="entrycompletion1">
     <property name="model">liststore1</property>
     <property name="text_column">0</property>
-    <signal name="match-selected" handler="cb_matchselected" swapped="no"/>
+    <property name="inline_completion">True</property>
+    <property name="popup_set_width">False</property>
+    <property name="popup_single_match">False</property>
+    <property name="inline_selection">True</property>
+    <signal name="insert-prefix" handler="cb_insertprefix" swapped="no"/>
     <child>
       <object class="GtkCellRendererText" id="textCellRenderer">
         <property name="ypad">1</property>
@@ -57,8 +61,6 @@
             <property name="completion">entrycompletion1</property>
             <property name="input_hints">GTK_INPUT_HINT_WORD_COMPLETION | GTK_INPUT_HINT_NONE</property>
             <signal name="activate" handler="cb_activate" object="statusbar1" swapped="no"/>
-            <signal name="changed" handler="cb_changed" swapped="no"/>
-            <signal name="key-press-event" handler="cb_keypress" swapped="no"/>
           </object>
           <packing>
             <property name="expand">False</property>
@@ -75,7 +77,7 @@
             <property name="margin_start">10</property>
             <property name="margin_end">10</property>
             <property name="orientation">vertical</property>
-            <signal name="text-pushed" handler="cb_pushed" swapped="no"/>
+            <signal name="text-pushed" handler="cb_textpushed" swapped="no"/>
           </object>
           <packing>
             <property name="expand">False</property>

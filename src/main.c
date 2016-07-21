@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <gdk/gdkkeysyms.h>
@@ -173,7 +172,7 @@ static void init_dir(GtkListStore *liststore) {
 	return;
 }
 
-static gboolean str_contains_space(gchar *str) {
+static gboolean str_contains_space(const gchar *str) {
 	gchar *token;
 
 	token = strchr(str, ' ');
@@ -194,16 +193,18 @@ static gboolean str_contains_alnum(const gchar *str) {
 }
 static gboolean match_func(GtkEntryCompletion *completion, const gchar *key, GtkTreeIter *iter, gpointer user_data) {
 
+	gboolean retval = FALSE;
+
 	GtkTreeModel *model;
 	gchar *fullname = NULL;
 	gint flag;
 
-	gchar **keytext;
 	gchar *keybuffer;
-	guint len;
+	gchar *token;
+
 
 	if (!str_contains_alnum(key)) {
-		return FALSE;
+		return retval;
 	}
 
 	model = gtk_entry_completion_get_model(completion);
@@ -214,50 +215,128 @@ static gboolean match_func(GtkEntryCompletion *completion, const gchar *key, Gtk
 	if (!str_contains_space(keybuffer)) {
 		if (flag == T_CMD) {
 			if (g_str_has_prefix(fullname, keybuffer)) {
-				g_free(keybuffer);
-				return TRUE;
+				retval = TRUE;
+				goto ret1;
 			}
 		}
-		g_free(keybuffer);
-		return FALSE;
+		goto ret1;
 	}
 
-	keytext = g_strsplit(keybuffer, " ", -1);
-	len = g_strv_length(keytext);
-
+	token = strrchr(keybuffer, ' ');
 	if (flag == T_DIR) {
-		if (g_str_has_prefix(fullname, keytext[len - 1])) {
-			g_strfreev(keytext);
-			g_free(keybuffer);
-			return TRUE;
+		if (g_str_has_prefix(fullname, token + 1)) {
+			retval = TRUE;
+			goto ret1;
 		}
 	}
 
-	g_strfreev(keytext);
+	ret1:
 	g_free(keybuffer);
-
-	return FALSE;
+	g_free(fullname);
+	return retval;
 }
 
 /**
  * @brief Function for entry match-selected signal callback
  * @param completion
  */
-/*
-G_MODULE_EXPORT void cb_matchselected(GtkEntryCompletion *completion) {
+G_MODULE_EXPORT gboolean cb_matchselected(GtkEntryCompletion *completion, GtkTreeModel *model, GtkTreeIter *iter,
+		gpointer user_data) {
+
+	gboolean retval = TRUE;
+
+	gchar *fullname = NULL;
+	const gchar *key;
+
+	GtkEntry *entry;
+	GtkEditable *editable;
+
+	gchar *keybuffer;
+	gchar *entrybuffer;
+	gchar *token;
+
+
+	entry = GTK_ENTRY(gtk_entry_completion_get_entry(completion));
+	editable = GTK_EDITABLE(entry);
+
+	key = gtk_entry_get_text(entry);
+	keybuffer = g_strstrip(g_strdup_printf(key, "%s"));
+
+	gtk_tree_model_get(model, iter, COL_NAME, &fullname, -1);
+
+
+	if (!str_contains_space(keybuffer)) {
+		gtk_entry_set_text(entry, fullname);
+		gtk_editable_set_position(editable, -1);
+		goto ret1;
+	}
+
+	token = strrchr(keybuffer, ' ');
+	*token = '\0';
+	entrybuffer = g_strjoin(" ", keybuffer, fullname, NULL);
+
+
+	gtk_entry_set_text(entry, entrybuffer);
+	gtk_editable_set_position(editable, -1);
+
+
+	g_free(entrybuffer);
+
+	ret1:
+	g_free(keybuffer);
+	g_free(fullname);
+	return retval;
+
 
 }
- */
 
 /**
  * @brief Function for entry insert-prefix signal callback
  * @param completion
  */
-G_MODULE_EXPORT gboolean cb_insertprefix(GtkEntryCompletion *completion) {
+G_MODULE_EXPORT gboolean cb_insertprefix(GtkEntryCompletion *completion, gchar *prefix, gpointer user_data) {
 
-	return TRUE;
+	gboolean retval = TRUE;
+
+	/*	gchar *fullname = NULL;
+	const gchar *key;
+
+	GtkEntry *entry;
+	GtkEditable *editable;
+
+	gchar *keybuffer;
+	gchar *entrybuffer;
+	gchar *token;
+
+	entry = GTK_ENTRY(gtk_entry_completion_get_entry(completion));
+	editable = GTK_EDITABLE(entry);
+
+	key = gtk_entry_get_text(entry);
+	keybuffer = g_strstrip(g_strdup_printf(key, "%s"));
+
+	gtk_tree_model_get(model, iter, COL_NAME, &fullname, -1);
+
+	if (!str_contains_space(keybuffer)) {
+		gtk_entry_set_text(entry, fullname);
+		gtk_editable_set_position(editable, -1);
+		goto ret1;
+	}
+
+	token = strrchr(keybuffer, ' ');
+	*token = '\0';
+	entrybuffer = g_strjoin(" ", keybuffer, fullname, NULL);
+
+	gtk_entry_set_text(entry, entrybuffer);
+	gtk_editable_set_position(editable, -1);
+
+	g_free(entrybuffer);
+
+	ret1: g_free(keybuffer);
+	 g_free(fullname);*/
+	return retval;
+
+
 }
-
 
 /**
  * @brief Function for entry destroy signal callback
@@ -296,9 +375,9 @@ G_MODULE_EXPORT gboolean cb_activate(GtkWidget *entry, GtkStatusbar *statusbar) 
  * @param entry
  */
 /*
-G_MODULE_EXPORT void cb_changed(GtkWidget *entry) {
+ G_MODULE_EXPORT void cb_changed(GtkWidget *entry) {
 
-}
+ }
  */
 
 /**
@@ -309,16 +388,16 @@ G_MODULE_EXPORT void cb_changed(GtkWidget *entry) {
  */
 /*G_MODULE_EXPORT gboolean cb_keypress(GtkWidget *entry, GdkEventKey *event, GtkEntryCompletion *entrycompletion) {
 
-	switch (event->keyval) {
-	case GDK_KEY_uparrow:
-		break;
-	case GDK_KEY_downarrow:
-		break;
-	case GDK_KEY_Tab:
-		break;
-	}
+ switch (event->keyval) {
+ case GDK_KEY_uparrow:
+ break;
+ case GDK_KEY_downarrow:
+ break;
+ case GDK_KEY_Tab:
+ break;
+ }
 
-	return GDK_EVENT_PROPAGATE;
+ return GDK_EVENT_PROPAGATE;
 
  }*/
 

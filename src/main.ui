@@ -22,6 +22,7 @@
     <property name="popup_single_match">False</property>
     <property name="inline_selection">True</property>
     <signal name="insert-prefix" handler="cb_insertprefix" swapped="no"/>
+    <signal name="match-selected" handler="cb_matchselected" swapped="no"/>
     <child>
       <object class="GtkCellRendererText" id="textCellRenderer">
         <property name="ypad">1</property>

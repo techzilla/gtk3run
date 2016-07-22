@@ -17,11 +17,8 @@
   <object class="GtkEntryCompletion" id="entrycompletion1">
     <property name="model">liststore1</property>
     <property name="text_column">0</property>
-    <property name="inline_completion">True</property>
     <property name="popup_set_width">False</property>
     <property name="popup_single_match">False</property>
-    <property name="inline_selection">True</property>
-    <signal name="insert-prefix" handler="cb_insertprefix" swapped="no"/>
     <signal name="match-selected" handler="cb_matchselected" swapped="no"/>
     <child>
       <object class="GtkCellRendererText" id="textCellRenderer">
@@ -62,6 +59,7 @@
             <property name="completion">entrycompletion1</property>
             <property name="input_hints">GTK_INPUT_HINT_WORD_COMPLETION | GTK_INPUT_HINT_NONE</property>
             <signal name="activate" handler="cb_activate" object="statusbar1" swapped="no"/>
+            <signal name="changed" handler="cb_changed" object="liststore1" swapped="no"/>
           </object>
           <packing>
             <property name="expand">False</property>

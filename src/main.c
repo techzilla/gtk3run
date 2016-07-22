@@ -83,8 +83,7 @@ static void update_cmd_list(gchar *dirname, GtkListStore *liststore) {
 		fullname = g_build_filename(dirname, basename, NULL);
 
 		if (g_file_test(fullname, G_FILE_TEST_IS_EXECUTABLE)) {
-			gtk_list_store_append(liststore, &iter);
-			gtk_list_store_set(liststore, &iter, COL_NAME, (gchar *) basename, COL_FLAG, T_CMD, -1);
+			gtk_list_store_insert_with_values(liststore, &iter, -1, COL_NAME, (gchar *) basename, COL_FLAG, T_CMD, -1);
 
 		}
 		g_free(fullname);
@@ -130,26 +129,26 @@ static void init_cmd(GtkListStore *liststore) {
  */
 static void update_dir_list(gchar *dirname, GtkListStore *liststore) {
 	GDir *dir;
-	GError *err = NULL;
+	//	GError *err = NULL;
 	const gchar *basename;
 	gchar *fullname;
 
 	GtkTreeIter iter;
 
-	dir = g_dir_open(dirname, 0, &err);
+	if (!dirname) {
+		return;
+	}
+
+	dir = g_dir_open(dirname, 0, NULL);
 
 	if (!dir) {
-		g_warning("%s", err->message);
-		g_error_free(err);
 		return;
 	}
 
 	while ((basename = g_dir_read_name(dir)) != NULL) {
 
 		fullname = g_build_filename(dirname, basename, NULL);
-
-		gtk_list_store_append(liststore, &iter);
-		gtk_list_store_set(liststore, &iter, COL_NAME, (gchar *) fullname, COL_FLAG, T_DIR, -1);
+		gtk_list_store_insert_with_values(liststore, &iter, -1, COL_NAME, (gchar *) fullname, COL_FLAG, T_DIR, -1);
 
 		g_free(fullname);
 	}
@@ -174,22 +173,42 @@ static void init_dir(GtkListStore *liststore) {
 
 static gboolean str_contains_space(const gchar *str) {
 	gchar *token;
+	gboolean retval = FALSE;
 
 	token = strchr(str, ' ');
 	if (token) {
-		return TRUE;
+		retval = TRUE;
 	}
-	return FALSE;
+	return retval;
+}
+
+static gboolean str_contains_path(const gchar *str) {
+	gchar *token1;
+	gchar *token2;
+	gboolean retval = FALSE;
+
+	token1 = strrchr(str, ' ');
+	if (token1) {
+		token2 = strchr(token1, G_DIR_SEPARATOR);
+		{
+			if (token2) {
+				retval = TRUE;
+			}
+		}
+	}
+
+	return retval;
 }
 
 static gboolean str_contains_alnum(const gchar *str) {
 	gchar *token;
+	gboolean retval = FALSE;
 
 	token = strpbrk(str, "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz0123456789");
 	if (token) {
-		return TRUE;
+		retval = TRUE;
 	}
-	return FALSE;
+	return retval;
 }
 static gboolean match_func(GtkEntryCompletion *completion, const gchar *key, GtkTreeIter *iter, gpointer user_data) {
 
@@ -202,13 +221,15 @@ static gboolean match_func(GtkEntryCompletion *completion, const gchar *key, Gtk
 	gchar *keybuffer;
 	gchar *token;
 
-
 	if (!str_contains_alnum(key)) {
 		return retval;
 	}
 
 	model = gtk_entry_completion_get_model(completion);
 	gtk_tree_model_get(model, iter, COL_NAME, &fullname, COL_FLAG, &flag, -1);
+	if (!fullname) {
+		goto ret2;
+	}
 
 	keybuffer = g_strstrip(g_strdup_printf(key, "%s"));
 
@@ -223,6 +244,7 @@ static gboolean match_func(GtkEntryCompletion *completion, const gchar *key, Gtk
 	}
 
 	token = strrchr(keybuffer, ' ');
+
 	if (flag == T_DIR) {
 		if (g_str_has_prefix(fullname, token + 1)) {
 			retval = TRUE;
@@ -230,9 +252,8 @@ static gboolean match_func(GtkEntryCompletion *completion, const gchar *key, Gtk
 		}
 	}
 
-	ret1:
-	g_free(keybuffer);
-	g_free(fullname);
+	ret1: g_free(keybuffer);
+	ret2: g_free(fullname);
 	return retval;
 }
 
@@ -246,59 +267,6 @@ G_MODULE_EXPORT gboolean cb_matchselected(GtkEntryCompletion *completion, GtkTre
 	gboolean retval = TRUE;
 
 	gchar *fullname = NULL;
-	const gchar *key;
-
-	GtkEntry *entry;
-	GtkEditable *editable;
-
-	gchar *keybuffer;
-	gchar *entrybuffer;
-	gchar *token;
-
-
-	entry = GTK_ENTRY(gtk_entry_completion_get_entry(completion));
-	editable = GTK_EDITABLE(entry);
-
-	key = gtk_entry_get_text(entry);
-	keybuffer = g_strstrip(g_strdup_printf(key, "%s"));
-
-	gtk_tree_model_get(model, iter, COL_NAME, &fullname, -1);
-
-
-	if (!str_contains_space(keybuffer)) {
-		gtk_entry_set_text(entry, fullname);
-		gtk_editable_set_position(editable, -1);
-		goto ret1;
-	}
-
-	token = strrchr(keybuffer, ' ');
-	*token = '\0';
-	entrybuffer = g_strjoin(" ", keybuffer, fullname, NULL);
-
-
-	gtk_entry_set_text(entry, entrybuffer);
-	gtk_editable_set_position(editable, -1);
-
-
-	g_free(entrybuffer);
-
-	ret1:
-	g_free(keybuffer);
-	g_free(fullname);
-	return retval;
-
-
-}
-
-/**
- * @brief Function for entry insert-prefix signal callback
- * @param completion
- */
-G_MODULE_EXPORT gboolean cb_insertprefix(GtkEntryCompletion *completion, gchar *prefix, gpointer user_data) {
-
-	gboolean retval = TRUE;
-
-	/*	gchar *fullname = NULL;
 	const gchar *key;
 
 	GtkEntry *entry;
@@ -332,9 +300,8 @@ G_MODULE_EXPORT gboolean cb_insertprefix(GtkEntryCompletion *completion, gchar *
 	g_free(entrybuffer);
 
 	ret1: g_free(keybuffer);
-	 g_free(fullname);*/
+	g_free(fullname);
 	return retval;
-
 
 }
 
@@ -374,11 +341,24 @@ G_MODULE_EXPORT gboolean cb_activate(GtkWidget *entry, GtkStatusbar *statusbar) 
  * @brief Function for entry changed signal callback
  * @param entry
  */
-/*
- G_MODULE_EXPORT void cb_changed(GtkWidget *entry) {
+G_MODULE_EXPORT void cb_changed(GtkEditable *editable, GtkListStore *liststore) {
 
- }
- */
+	const gchar *entry_text;
+	gchar *token;
+	gchar *dirname;
+
+	entry_text = gtk_entry_get_text(GTK_ENTRY(editable));
+	if (!str_contains_path(entry_text)) {
+		return;
+	}
+
+	token = strrchr(entry_text, ' ');
+	dirname = strchr(token, G_DIR_SEPARATOR);
+
+	update_dir_list(dirname, liststore);
+
+	return;
+}
 
 /**
  * @brief Function for entry key-press-event signal callback

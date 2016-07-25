@@ -56,6 +56,60 @@ enum {
 };
 
 /**
+ * @brief Removes leading and trailing whitespace from a string
+ * @param string
+ * @return
+ */
+static GString * g_string_strip(GString *string) {
+
+	gint i1;
+	gint pos2;
+
+	/* Left side */
+	for (i1 = 0; i1 < string->len; i1++) {
+		if (!g_ascii_isspace(string->str[i1])) {
+			break;
+		}
+	}
+	if (i1 > 0) {
+		g_string_erase(string, 0, i1);
+	}
+
+
+	/* Right side */
+	for (pos2 = string->len - 1;; pos2--) {
+		if (!g_ascii_isspace(string->str[pos2])) {
+			break;
+		}
+
+	}
+	if (pos2 + 1 < string->len) {
+		g_string_set_size(string, pos2);
+	}
+
+	return string;
+
+}
+
+static GString * g_string_stripword(GString *string) {
+	gint pos2;
+
+	/* Right side */
+	for (pos2 = string->len - 1;; pos2--) {
+		if (g_ascii_isspace(string->str[pos2])) {
+			break;
+		}
+	}
+
+	if (pos2 + 1 < string->len) {
+		g_string_set_size(string, pos2);
+	}
+
+	return string;
+}
+
+
+/**
  * @brief Function to search directory for commands and update list
  * @param dirname
  * @param liststore
@@ -122,36 +176,106 @@ static void init_cmd(GtkListStore *liststore) {
 
 }
 
+/*static gboolean liststore_cas(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter1, gpointer data) {
+ gchar *fullname1 = NULL;
+ gchar *fullname2 = NULL;
+ gint cval;
+
+ GtkTreeIter *iter2;
+ GtkListStore *liststore;
+
+ iter2 = iter1;
+ liststore = GTK_LIST_STORE(model);
+
+ gtk_tree_model_get(model, iter1, COL_NAME, &fullname1, -1);
+
+ gtk_tree_model_iter_next(model, iter2);
+ gtk_tree_model_get(model, iter2, COL_NAME, &fullname2, -1);
+
+ cval = g_strcmp0(fullname1, fullname2);
+
+ if (cval == 0) {
+ gtk_list_store_remove(liststore, iter2);
+ }
+
+ if (cval > 0) {
+ gtk_list_store_swap(liststore, iter2, iter1);
+ }
+
+ g_free(fullname1);
+ g_free(fullname2);
+
+ return TRUE;
+ }*/
+
+/**
+ * @brief Function to remove liststore directory row
+ * @param model
+ * @param path
+ * @param iter
+ * @param data
+ * @return
+ */
+static gboolean remove_dir_rows(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter, gpointer data) {
+
+	GtkListStore *liststore;
+	gint flag;
+
+
+	gtk_tree_model_get(model, iter, COL_FLAG, &flag, -1);
+
+	if (flag == T_DIR) {
+
+		liststore = GTK_LIST_STORE(model);
+		gtk_list_store_remove(liststore, iter);
+		gtk_list_store_iter_is_valid(liststore, iter);
+	}
+
+	return FALSE;
+}
+
+
 /**
  * @brief Function to search directory for contents and update list
  * @param dirname
  * @param liststore
  */
-static void update_dir_list(gchar *dirname, GtkListStore *liststore) {
+static void update_dir_list(const gchar *dirname, GtkListStore *liststore) {
 	GDir *dir;
-	//	GError *err = NULL;
 	const gchar *basename;
+
 	gchar *fullname;
 
 	GtkTreeIter iter;
+	GtkTreeModel *model;
 
 	if (!dirname) {
 		return;
 	}
 
-	dir = g_dir_open(dirname, 0, NULL);
+	model = GTK_TREE_MODEL(liststore);
 
+	gtk_tree_model_foreach(model, (GtkTreeModelForeachFunc) remove_dir_rows, NULL);
+
+	dir = g_dir_open(dirname, 0, NULL);
 	if (!dir) {
 		return;
 	}
 
 	while ((basename = g_dir_read_name(dir)) != NULL) {
-
 		fullname = g_build_filename(dirname, basename, NULL);
-		gtk_list_store_insert_with_values(liststore, &iter, -1, COL_NAME, (gchar *) fullname, COL_FLAG, T_DIR, -1);
 
+		if (g_file_test(fullname, G_FILE_TEST_IS_DIR)) {
+			if (!g_str_has_suffix(fullname, G_DIR_SEPARATOR_S)) {
+				fullname = g_realloc(fullname, ((strlen(fullname)) + 2));
+				fullname = strcat(fullname, G_DIR_SEPARATOR_S);
+			}
+		}
+
+		gtk_list_store_insert_with_values(liststore, &iter, -1, COL_NAME, (gchar *) fullname, COL_FLAG, T_DIR, -1);
 		g_free(fullname);
 	}
+
 
 	g_dir_close(dir);
 
@@ -163,10 +287,10 @@ static void update_dir_list(gchar *dirname, GtkListStore *liststore) {
  * @param liststore
  */
 static void init_dir(GtkListStore *liststore) {
-	gchar *dirname;
+//	gchar *dirname;
 
-	dirname = "./";
-	update_dir_list(dirname, liststore);
+//	dirname = "./";
+//	update_dir_list(dirname, liststore);
 
 	return;
 }
@@ -267,39 +391,36 @@ G_MODULE_EXPORT gboolean cb_matchselected(GtkEntryCompletion *completion, GtkTre
 	gboolean retval = TRUE;
 
 	gchar *fullname = NULL;
-	const gchar *key;
+	GString *entrybuffer;
 
 	GtkEntry *entry;
 	GtkEditable *editable;
 
-	gchar *keybuffer;
-	gchar *entrybuffer;
-	gchar *token;
 
 	entry = GTK_ENTRY(gtk_entry_completion_get_entry(completion));
 	editable = GTK_EDITABLE(entry);
 
-	key = gtk_entry_get_text(entry);
-	keybuffer = g_strstrip(g_strdup_printf(key, "%s"));
+	entrybuffer = g_string_new(gtk_entry_get_text(entry));
+	entrybuffer = g_string_strip(entrybuffer);
 
 	gtk_tree_model_get(model, iter, COL_NAME, &fullname, -1);
 
-	if (!str_contains_space(keybuffer)) {
+
+	if (!str_contains_space(entrybuffer->str)) {
 		gtk_entry_set_text(entry, fullname);
 		gtk_editable_set_position(editable, -1);
 		goto ret1;
 	}
 
-	token = strrchr(keybuffer, ' ');
-	*token = '\0';
-	entrybuffer = g_strjoin(" ", keybuffer, fullname, NULL);
+	entrybuffer = g_string_stripword(entrybuffer);
+	entrybuffer = g_string_append(entrybuffer, " ");
+	entrybuffer = g_string_append(entrybuffer, fullname);
 
-	gtk_entry_set_text(entry, entrybuffer);
+	gtk_entry_set_text(entry, entrybuffer->str);
 	gtk_editable_set_position(editable, -1);
 
-	g_free(entrybuffer);
 
-	ret1: g_free(keybuffer);
+	ret1: g_string_free(entrybuffer, TRUE);
 	g_free(fullname);
 	return retval;
 
@@ -322,6 +443,7 @@ G_MODULE_EXPORT void cb_destroy(GtkWidget *window) {
 G_MODULE_EXPORT gboolean cb_activate(GtkWidget *entry, GtkStatusbar *statusbar) {
 	GError *err = NULL;
 	guint context_id;
+	gboolean retval = TRUE;
 
 	const gchar *entry_text;
 	entry_text = gtk_entry_get_text(GTK_ENTRY(entry));
@@ -332,16 +454,21 @@ G_MODULE_EXPORT gboolean cb_activate(GtkWidget *entry, GtkStatusbar *statusbar) 
 		context_id = gtk_statusbar_get_context_id(GTK_STATUSBAR(statusbar), "info");
 		gtk_statusbar_push(GTK_STATUSBAR(statusbar), context_id, err->message);
 		g_error_free(err);
-		return FALSE;
+		retval = FALSE;
 	}
-	return TRUE;
+	return retval;
 }
 
 /**
- * @brief Function for entry changed signal callback
- * @param entry
+ * @brief Function for entry insert-text signal callback
+ * @param editable
+ * @param new_text
+ * @param new_text_length
+ * @param position
+ * @param liststore
  */
-G_MODULE_EXPORT void cb_changed(GtkEditable *editable, GtkListStore *liststore) {
+G_MODULE_EXPORT void cb_inserttext(GtkEditable *editable, gchar *new_text, gint new_text_length, gpointer position,
+		GtkListStore *liststore) {
 
 	const gchar *entry_text;
 	gchar *token;
@@ -358,7 +485,29 @@ G_MODULE_EXPORT void cb_changed(GtkEditable *editable, GtkListStore *liststore) 
 	update_dir_list(dirname, liststore);
 
 	return;
+
 }
+
+/**
+ * @brief Function for entry delete-text signal callback
+ * @param editable
+ * @param start_pos
+ * @param end_pos
+ * @param liststore
+ */
+G_MODULE_EXPORT void cb_deletetext(GtkEditable *editable, gint start_pos, gint end_pos, GtkListStore *liststore) {
+
+	return;
+
+}
+
+/**
+ * @brief Function for entry changed signal callback
+ * @param entry
+ */
+//G_MODULE_EXPORT void cb_changed(GtkEditable *editable, GtkListStore *liststore) {
+//	return;
+//}
 
 /**
  * @brief Function for entry key-press-event signal callback

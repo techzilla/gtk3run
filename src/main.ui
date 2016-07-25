@@ -59,7 +59,8 @@
             <property name="completion">entrycompletion1</property>
             <property name="input_hints">GTK_INPUT_HINT_WORD_COMPLETION | GTK_INPUT_HINT_NONE</property>
             <signal name="activate" handler="cb_activate" object="statusbar1" swapped="no"/>
-            <signal name="changed" handler="cb_changed" object="liststore1" swapped="no"/>
+            <signal name="delete-text" handler="cb_deletetext" object="liststore1" swapped="no"/>
+            <signal name="insert-text" handler="cb_inserttext" object="liststore1" swapped="no"/>
           </object>
           <packing>
             <property name="expand">False</property>

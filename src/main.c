@@ -75,7 +75,6 @@ static GString * g_string_strip(GString *string) {
 		g_string_erase(string, 0, i1);
 	}
 
-
 	/* Right side */
 	for (pos2 = string->len - 1;; pos2--) {
 		if (!g_ascii_isspace(string->str[pos2])) {
@@ -91,7 +90,12 @@ static GString * g_string_strip(GString *string) {
 
 }
 
-static GString * g_string_stripword(GString *string) {
+/**
+ * @brief Function to truncate last word
+ * @param string
+ * @return
+ */
+static GString * g_string_trunword(GString *string) {
 	gint pos2;
 
 	/* Right side */
@@ -108,6 +112,27 @@ static GString * g_string_stripword(GString *string) {
 	return string;
 }
 
+/**
+ * @brief Function to erase everything except last word
+ * @param string
+ * @return
+ */
+static GString * g_string_invtrunword(GString *string) {
+	gint pos2;
+
+	/* Right side */
+	for (pos2 = string->len - 1;; pos2--) {
+		if (g_ascii_isspace(string->str[pos2])) {
+			break;
+		}
+	}
+
+	if (pos2 + 1 < string->len) {
+		g_string_erase(string, 0, pos2 + 1);
+	}
+
+	return string;
+}
 
 /**
  * @brief Function to search directory for commands and update list
@@ -176,38 +201,6 @@ static void init_cmd(GtkListStore *liststore) {
 
 }
 
-/*static gboolean liststore_cas(GtkTreeModel *model, GtkTreePath *path, GtkTreeIter *iter1, gpointer data) {
- gchar *fullname1 = NULL;
- gchar *fullname2 = NULL;
- gint cval;
-
- GtkTreeIter *iter2;
- GtkListStore *liststore;
-
- iter2 = iter1;
- liststore = GTK_LIST_STORE(model);
-
- gtk_tree_model_get(model, iter1, COL_NAME, &fullname1, -1);
-
- gtk_tree_model_iter_next(model, iter2);
- gtk_tree_model_get(model, iter2, COL_NAME, &fullname2, -1);
-
- cval = g_strcmp0(fullname1, fullname2);
-
- if (cval == 0) {
- gtk_list_store_remove(liststore, iter2);
- }
-
- if (cval > 0) {
- gtk_list_store_swap(liststore, iter2, iter1);
- }
-
- g_free(fullname1);
- g_free(fullname2);
-
- return TRUE;
- }*/
-
 /**
  * @brief Function to remove liststore directory row
  * @param model
@@ -221,7 +214,6 @@ static gboolean remove_dir_rows(GtkTreeModel *model, GtkTreePath *path, GtkTreeI
 	GtkListStore *liststore;
 	gint flag;
 
-
 	gtk_tree_model_get(model, iter, COL_FLAG, &flag, -1);
 
 	if (flag == T_DIR) {
@@ -233,7 +225,6 @@ static gboolean remove_dir_rows(GtkTreeModel *model, GtkTreePath *path, GtkTreeI
 
 	return FALSE;
 }
-
 
 /**
  * @brief Function to search directory for contents and update list
@@ -276,25 +267,24 @@ static void update_dir_list(const gchar *dirname, GtkListStore *liststore) {
 		g_free(fullname);
 	}
 
-
 	g_dir_close(dir);
 
 	return;
 }
 
 /**
- * @brief Functions to initialize directory completion
+ * @brief Function to initialize directory completion
  * @param liststore
  */
 static void init_dir(GtkListStore *liststore) {
-//	gchar *dirname;
-
-//	dirname = "./";
-//	update_dir_list(dirname, liststore);
-
 	return;
 }
 
+/**
+ * @brief Function to search string for space
+ * @param str
+ * @return
+ */
 static gboolean str_contains_space(const gchar *str) {
 	gchar *token;
 	gboolean retval = FALSE;
@@ -306,6 +296,11 @@ static gboolean str_contains_space(const gchar *str) {
 	return retval;
 }
 
+/**
+ * @brief Function to search string for path
+ * @param str
+ * @return
+ */
 static gboolean str_contains_path(const gchar *str) {
 	gchar *token1;
 	gchar *token2;
@@ -324,6 +319,27 @@ static gboolean str_contains_path(const gchar *str) {
 	return retval;
 }
 
+/**
+ * @brief Function to search string for dir separator
+ * @param str
+ * @return
+ */
+static gboolean str_contains_separator(const gchar *str) {
+	gchar *token;
+	gboolean retval = FALSE;
+
+	token = strchr(str, G_DIR_SEPARATOR);
+	if (token) {
+		retval = TRUE;
+	}
+	return retval;
+}
+
+/**
+ * @brief Function to search string for alnum
+ * @param str
+ * @return
+ */
 static gboolean str_contains_alnum(const gchar *str) {
 	gchar *token;
 	gboolean retval = FALSE;
@@ -334,32 +350,44 @@ static gboolean str_contains_alnum(const gchar *str) {
 	}
 	return retval;
 }
+
+/**
+ * @brief completion match function
+ * @param completion
+ * @param key
+ * @param iter
+ * @param user_data
+ * @return
+ */
 static gboolean match_func(GtkEntryCompletion *completion, const gchar *key, GtkTreeIter *iter, gpointer user_data) {
 
 	gboolean retval = FALSE;
 
-	GtkTreeModel *model;
-	gchar *fullname = NULL;
-	gint flag;
+	GString *keybuffer;
+	GString *namebuffer;
 
-	gchar *keybuffer;
-	gchar *token;
+	GtkTreeModel *model;
+	gchar *name = NULL;
+
+	gint flag;
 
 	if (!str_contains_alnum(key)) {
 		return retval;
 	}
 
 	model = gtk_entry_completion_get_model(completion);
-	gtk_tree_model_get(model, iter, COL_NAME, &fullname, COL_FLAG, &flag, -1);
-	if (!fullname) {
-		goto ret2;
+	gtk_tree_model_get(model, iter, COL_NAME, &name, COL_FLAG, &flag, -1);
+	if (!name) {
+		return retval;
 	}
 
-	keybuffer = g_strstrip(g_strdup_printf(key, "%s"));
+	namebuffer = g_string_new(name);
+	keybuffer = g_string_new(key);
+	keybuffer = g_string_strip(keybuffer);
 
-	if (!str_contains_space(keybuffer)) {
+	if (!str_contains_space(keybuffer->str)) {
 		if (flag == T_CMD) {
-			if (g_str_has_prefix(fullname, keybuffer)) {
+			if (g_str_has_prefix(namebuffer->str, keybuffer->str)) {
 				retval = TRUE;
 				goto ret1;
 			}
@@ -367,23 +395,36 @@ static gboolean match_func(GtkEntryCompletion *completion, const gchar *key, Gtk
 		goto ret1;
 	}
 
-	token = strrchr(keybuffer, ' ');
-
+	keybuffer = g_string_invtrunword(keybuffer);
 	if (flag == T_DIR) {
-		if (g_str_has_prefix(fullname, token + 1)) {
-			retval = TRUE;
-			goto ret1;
+		if (g_str_has_prefix(namebuffer->str, keybuffer->str)) {
+			if (keybuffer->len < namebuffer->len) {
+				g_string_erase(namebuffer, 0, keybuffer->len);
+				if (namebuffer->str[namebuffer->len - 1] == G_DIR_SEPARATOR) {
+					retval = TRUE;
+					goto ret1;
+				} else if (!str_contains_separator(namebuffer->str)) {
+					retval = TRUE;
+					goto ret1;
+				}
+
+			}
 		}
 	}
 
-	ret1: g_free(keybuffer);
-	ret2: g_free(fullname);
+	ret1: g_string_free(keybuffer, TRUE);
+	g_string_free(namebuffer, TRUE);
+	g_free(name);
 	return retval;
 }
 
 /**
  * @brief Function for entry match-selected signal callback
  * @param completion
+ * @param model
+ * @param iter
+ * @param user_data
+ * @return
  */
 G_MODULE_EXPORT gboolean cb_matchselected(GtkEntryCompletion *completion, GtkTreeModel *model, GtkTreeIter *iter,
 		gpointer user_data) {
@@ -396,7 +437,6 @@ G_MODULE_EXPORT gboolean cb_matchselected(GtkEntryCompletion *completion, GtkTre
 	GtkEntry *entry;
 	GtkEditable *editable;
 
-
 	entry = GTK_ENTRY(gtk_entry_completion_get_entry(completion));
 	editable = GTK_EDITABLE(entry);
 
@@ -405,20 +445,18 @@ G_MODULE_EXPORT gboolean cb_matchselected(GtkEntryCompletion *completion, GtkTre
 
 	gtk_tree_model_get(model, iter, COL_NAME, &fullname, -1);
 
-
 	if (!str_contains_space(entrybuffer->str)) {
 		gtk_entry_set_text(entry, fullname);
 		gtk_editable_set_position(editable, -1);
 		goto ret1;
 	}
 
-	entrybuffer = g_string_stripword(entrybuffer);
-	entrybuffer = g_string_append(entrybuffer, " ");
+	entrybuffer = g_string_trunword(entrybuffer);
+	entrybuffer = g_string_append_c(entrybuffer, ' ');
 	entrybuffer = g_string_append(entrybuffer, fullname);
 
 	gtk_entry_set_text(entry, entrybuffer->str);
 	gtk_editable_set_position(editable, -1);
-
 
 	ret1: g_string_free(entrybuffer, TRUE);
 	g_free(fullname);
@@ -500,35 +538,6 @@ G_MODULE_EXPORT void cb_deletetext(GtkEditable *editable, gint start_pos, gint e
 	return;
 
 }
-
-/**
- * @brief Function for entry changed signal callback
- * @param entry
- */
-//G_MODULE_EXPORT void cb_changed(GtkEditable *editable, GtkListStore *liststore) {
-//	return;
-//}
-
-/**
- * @brief Function for entry key-press-event signal callback
- * @param entry
- * @param event
- * @return
- */
-/*G_MODULE_EXPORT gboolean cb_keypress(GtkWidget *entry, GdkEventKey *event, GtkEntryCompletion *entrycompletion) {
-
- switch (event->keyval) {
- case GDK_KEY_uparrow:
- break;
- case GDK_KEY_downarrow:
- break;
- case GDK_KEY_Tab:
- break;
- }
-
- return GDK_EVENT_PROPAGATE;
-
- }*/
 
 /**
  * @brief Function for entry activation signal callback

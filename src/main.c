@@ -31,7 +31,6 @@ struct widgets {
  */
 struct lists {
 	GtkListStore *liststore1;
-	GtkListStore *liststore2;
 };
 
 /**
@@ -140,20 +139,20 @@ static GString * g_string_invtrunword(GString *string) {
  * @param liststore
 
  */
-static void update_cmd_list(gchar *dirname, GtkListStore *liststore) {
+static void update_cmd_list(const gchar *dirname, GtkListStore *liststore) {
 	GDir *dir;
-	GError *err = NULL;
-
 	const gchar *basename;
+
 	gchar *fullname;
 
 	GtkTreeIter iter;
 
-	dir = g_dir_open(dirname, 0, &err);
+	if (!dirname) {
+		return;
+	}
 
+	dir = g_dir_open(dirname, 0, NULL);
 	if (!dir) {
-		g_warning("%s", err->message);
-		g_error_free(err);
 		return;
 	}
 
@@ -269,14 +268,6 @@ static void update_dir_list(const gchar *dirname, GtkListStore *liststore) {
 
 	g_dir_close(dir);
 
-	return;
-}
-
-/**
- * @brief Function to initialize directory completion
- * @param liststore
- */
-static void init_dir(GtkListStore *liststore) {
 	return;
 }
 
@@ -437,6 +428,8 @@ G_MODULE_EXPORT gboolean cb_matchselected(GtkEntryCompletion *completion, GtkTre
 	GtkEntry *entry;
 	GtkEditable *editable;
 
+	GtkListStore *liststore;
+
 	entry = GTK_ENTRY(gtk_entry_completion_get_entry(completion));
 	editable = GTK_EDITABLE(entry);
 
@@ -457,6 +450,11 @@ G_MODULE_EXPORT gboolean cb_matchselected(GtkEntryCompletion *completion, GtkTre
 
 	gtk_entry_set_text(entry, entrybuffer->str);
 	gtk_editable_set_position(editable, -1);
+
+	liststore = GTK_LIST_STORE(model);
+	update_dir_list(fullname, liststore);
+
+
 
 	ret1: g_string_free(entrybuffer, TRUE);
 	g_free(fullname);
@@ -507,6 +505,8 @@ G_MODULE_EXPORT gboolean cb_activate(GtkWidget *entry, GtkStatusbar *statusbar) 
  */
 G_MODULE_EXPORT void cb_inserttext(GtkEditable *editable, gchar *new_text, gint new_text_length, gpointer position,
 		GtkListStore *liststore) {
+
+	/** @todo  properly escaped directory from entry **/
 
 	const gchar *entry_text;
 	gchar *token;
@@ -590,7 +590,6 @@ int main(int argc, char **argv) {
 	g_object_unref(G_OBJECT(builder));
 
 	init_cmd(lists->liststore1);
-	init_dir(lists->liststore1);
 	gtk_widget_show(widgets->window1);
 
 	gtk_main();
